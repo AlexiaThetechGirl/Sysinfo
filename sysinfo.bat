@@ -1,7 +1,21 @@
 @echo off
 setlocal enabledelayedexpansion
-set WEBHOOK_URL="Webhook Here"
+
+:: config
+
+:: Webhook that the data is set to
+set WEBHOOK_URL="Webhook URL here"
+
+:: Change if bundling the program with curl
 set curl_dir="curl"
+
+:: Change to false to disable usernames
+set enableusernames=true
+
+:: True sets the username to the username of the logged in user (only applies when enableusernames is true)
+set usernameisaccountname=true
+
+
 :: Display a consent message to the user
 echo This script will collect information about your system (such as CPU, RAM, GPU, etc.) and send it to a remote server. 
 echo Do you consent to sharing this information? (Y/N)
@@ -9,19 +23,74 @@ echo Do you consent to sharing this information? (Y/N)
 :: Ask for user input
 set /p userConsent="Enter Y to consent or N to decline: "
 
-:: Check if the user consents
+:: Check if the user consentsyu
 if /i "%userConsent%"=="Y" (
     cls
     echo You have consented to share your system information.
-    :: Proceed with collecting system information
-    goto collectinfo
+    if /i "%enableusernames%"=="true" (
+        if /i "%usernameisaccountname%"=="true" (
+            :: Sets the selected username to the logged in account's username
+            set selectedusername=!username!'s
+            :: Collects system information
+            goto collectinfo
+        ) else (
+            :: Proceed to username consent
+            goto usernameconsent
+        )
+    ) else (
+        :: Makes the selected username blank
+        set selectedusername=
+        :: Collects system information
+        goto collectinfo
+
+    )
 ) else (
     cls
     echo You have declined to share your system information. The script will now exit.
    pause
    exit
 )
-
+:usernameconsent
+:: Checks if the user wants a username
+echo Would you like to add a username? (Y/N)
+set /p usernameConsent="Enter Y or N to decline: "
+if /i "%usernameConsent%"=="Y" (
+    goto usernameselection
+) else (
+    cls
+    :: Sets the username to anonymous
+    set selectedusername="Anonymous'"
+    echo You have declined to add a username.
+    :: Proceed with collecting system information
+   goto collectinfo
+)
+:usernameselection
+cls
+echo What would you like your username to be? (leave blank for no username)
+set /p selectedusername="Username: "
+if /i "%selectedusername%"=="" (
+    cls
+    :: Sets the username to anonymous
+    set selectedusername="Anonymous'"
+    echo Your username has been reset
+    :: Proceed with collecting system information
+    goto collectinfo
+) else (
+    cls
+    echo Your username is !selectedusername!
+    echo Is this correct? Y/N
+    set /p usernameconsent="Enter Y or N to confirm: "
+    if /i "%usernameconsent%"=="Y" (
+    set selectedusername=%selectedusername%'s
+    cls
+    :: Proceed with collecting system information
+    goto collectinfo
+) else (
+    cls
+    set selectedusername=
+    goto usernameselection
+)
+)
 :collectinfo
 echo Collecting System Information
 set "infoindex=-1"
@@ -133,7 +202,6 @@ if %memType%==20 goto infoindex
 set "ddrVersion=Unknown DDR Version"
 goto infoindex
 :16
-
 for /f "skip=1 delims=" %%a in ('wmic diskdrive get model 2^>nul') do (
     set "line=%%a"
     :: Remove leading and trailing spaces from each line
@@ -205,8 +273,9 @@ for %%a in (%Pagefile%) do set "Pagefile=!nospace!%%a"
 ::set "version=%version:~0,-3%" 
 ::set "cpuname=%cpuname:~0,-3%" 
 :senddata
-SET BODY="{\"username\": \"System Info\", \"embeds\": [{\"title\": \"System Information\", \"color\": 16711680, \"description\": \"### OS:\n**Version:** !version! !DisplayVersion! `!detailedversion!`\n**Boot time:** !BootTime!\n**Architecture:** !architecture!\n**PC Name:** !computername!\n**Page File size:** !Pagefile!KB\n### Time:\n**System Date:** %date%\n**System Time:** %time%\n**Timezone:** !Timezone!\n### Motherboard:\n**Motherboard:** !motherboard!\n**Motherboard Vendor:** !vendor!\n### BIOS:\n**Bios Version:** !biosversion!\n**Bios Vendor:** !biosvendor!\n### Hardware:\n**CPU:** !cpuname! `!cpucores! cores` `!cputhreads! threads`\n**GPU/s:** !gpuinfo!\n**RAM:** !ram!GB !ddrVersion! !ramspeed!MHZ `!ramsticks! sticks`\n### Storage Drive:\n**Drive Model:** !DriveModel!\n**Capacity:** !DriveCapacity!\", \"footer\": {\"text\": \"Developed by AlexiaTheTechGirl\"}}]}"
+SET BODY="{\"username\": \"System Info\", \"embeds\": [{\"title\": \"!selectedusername! System Information\", \"color\": 16711680, \"description\": \"### OS:\n**Version:** !version! !DisplayVersion! `!detailedversion!`\n**Boot time:** !BootTime!\n**Architecture:** !architecture!\n**PC Name:** !computername!\n**Page File size:** !Pagefile!KB\n### Time:\n**System Date:** %date%\n**System Time:** %time%\n**Timezone:** !Timezone!\n### Motherboard:\n**Motherboard:** !motherboard!\n**Motherboard Vendor:** !vendor!\n### BIOS:\n**Bios Version:** !biosversion!\n**Bios Vendor:** !biosvendor!\n### Hardware:\n**CPU:** !cpuname! `!cpucores! cores` `!cputhreads! threads`\n**GPU/s:** !gpuinfo!\n**RAM:** !ram!GB !ddrVersion! !ramspeed!MHZ `!ramsticks! sticks`\n### Storage Drive:\n**Drive Model:** !DriveModel!\n**Capacity:** !DriveCapacity!\", \"footer\": {\"text\": \"Developed by AlexiaTheTechGirl\"}}]}"
 echo Sending System Information
 %curl_dir% -H "Content-Type: application/json" -d %BODY% %WEBHOOK_URL%
 echo Information Sent
 pause
+exit
