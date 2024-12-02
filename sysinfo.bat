@@ -1,19 +1,27 @@
 @echo off
 setlocal enabledelayedexpansion
-
+title SysInfo
 :: config
 
 :: Webhook that the data is set to
-set WEBHOOK_URL="Webhook URL here"
+set WEBHOOK_URL="Webhook URL Here"
 
 :: Change if bundling the program with curl
 set curl_dir="curl"
 
+::USERNAMES
 :: Change to false to disable usernames
 set enableusernames=true
 
 :: True sets the username to the username of the logged in user (only applies when enableusernames is true)
 set usernameisaccountname=true
+
+:: TIME INFO
+::true collects timeinformation about the system (time, date and timezone. Doesn't include boottime)
+set collectsystemtimeinfo=true
+
+:: True collects the boot time
+set collectboottime=true
 
 
 :: Display a consent message to the user
@@ -23,10 +31,12 @@ echo Do you consent to sharing this information? (Y/N)
 :: Ask for user input
 set /p userConsent="Enter Y to consent or N to decline: "
 
-:: Check if the user consentsyu
+:: Check if the user consents
 if /i "%userConsent%"=="Y" (
     cls
     echo You have consented to share your system information.
+
+::checks if usernames are enabled
     if /i "%enableusernames%"=="true" (
         if /i "%usernameisaccountname%"=="true" (
             :: Sets the selected username to the logged in account's username
@@ -189,16 +199,31 @@ for /f "skip=1" %%i in ('wmic MemoryChip get SMBIOSMemoryType') do (
 )
 :15
 ::Translate the memory type to DDR version
-set "ddrVersion=DDR5"
-if %memType%==27 goto infoindex
-set "ddrVersion=DDR4"
-if %memType%==26 goto infoindex
-set "ddrVersion=DDR3"
-if %memType%==24 goto infoindex
+for /f "tokens=4,5 delims=,. "  %%a in ('ver') do set "build_n=%%a.%%b"
+::Avoids script error if memtype is blank
+if "%memtype%"=="" ( 
+    set "ddrVersion="
+    goto infoindex
+)
+if %memType%==27 (
+    set "ddrVersion=DDR5"
+    goto infoindex
+)
+if %memType%==26 (
+    set "ddrVersion=DDR4"
+    goto infoindex)
+if %memType%==24 (
+    set "ddrVersion=DDR3"
+    goto infoindex
+)
+if %memType%==21 (
 set "ddrVersion=DDR2"
-if %memType%==21 goto infoindex
-set "ddrVersion=DDR"
-if %memType%==20 goto infoindex
+goto infoindex
+)
+if %memType%==20 (
+    set "ddrVersion=DDR"
+    goto infoindex
+)
 set "ddrVersion=Unknown DDR Version"
 goto infoindex
 :16
@@ -236,10 +261,17 @@ goto infoindex
 :18
 for /f "tokens=3,*" %%A in ('reg query "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v DisplayVersion 2^>nul') do set DisplayVersion=%%A
 :19
+if !collectsystemtimeinfo!==true (
 for /f "skip=1 delims=" %%a in ('wmic timezone get caption') do (
-    set "Timezone=%%a"
+    set "Timeinfo=### Time:\n**System Date:** %date%\n**System Time:** %time%\n**Timezone:** %%a\n"
     goto infoindex
 )
+
+) else (
+    set "Timeinfo="
+    goto infoindex
+)
+
 :20
 :: Create a temporary file to store systeminfo output
 set tempFile=%temp%\sysinfotemp%RANDOM%
@@ -252,12 +284,20 @@ set BootTime=%BootTime:~5%
 del "%tempFile%" >nul 2>&1
 goto infoindex
 :21
+:: Work around for if statements messing up the Boot Time function
+if !collectboottime!==true (
+    set "BootTimeVar=\n**Boot time:** !BootTime!"
+) else (
+    set "BootTimeVar="
+)
+goto infoindex
+:22
 for /f "skip=1 delims=" %%a in ('wmic OS get TotalVirtualMemorySize') do (
     set "Pagefile=%%a"
     goto infoindex
 )
 goto infoindex
-:22
+:23
 goto filtervariables
 :filtervariables
 ::removes spaces
@@ -273,7 +313,8 @@ for %%a in (%Pagefile%) do set "Pagefile=!nospace!%%a"
 ::set "version=%version:~0,-3%" 
 ::set "cpuname=%cpuname:~0,-3%" 
 :senddata
-SET BODY="{\"username\": \"System Info\", \"embeds\": [{\"title\": \"!selectedusername! System Information\", \"color\": 16711680, \"description\": \"### OS:\n**Version:** !version! !DisplayVersion! `!detailedversion!`\n**Boot time:** !BootTime!\n**Architecture:** !architecture!\n**PC Name:** !computername!\n**Page File size:** !Pagefile!KB\n### Time:\n**System Date:** %date%\n**System Time:** %time%\n**Timezone:** !Timezone!\n### Motherboard:\n**Motherboard:** !motherboard!\n**Motherboard Vendor:** !vendor!\n### BIOS:\n**Bios Version:** !biosversion!\n**Bios Vendor:** !biosvendor!\n### Hardware:\n**CPU:** !cpuname! `!cpucores! cores` `!cputhreads! threads`\n**GPU/s:** !gpuinfo!\n**RAM:** !ram!GB !ddrVersion! !ramspeed!MHZ `!ramsticks! sticks`\n### Storage Drive:\n**Drive Model:** !DriveModel!\n**Capacity:** !DriveCapacity!\", \"footer\": {\"text\": \"Developed by AlexiaTheTechGirl\"}}]}"
+set "scriptver=V1.2"
+SET BODY="{\"username\": \"System Info\", \"embeds\": [{\"title\": \"!selectedusername! System Information\", \"color\": 16711680, \"description\": \"### OS:\n**Version:** !version! !DisplayVersion! `!detailedversion!`!BootTimeVar!\n**Architecture:** !architecture!\n**PC Name:** !computername!\n**Page File size:** !Pagefile!KB\n!timeinfo!### Motherboard:\n**Motherboard:** !motherboard!\n**Motherboard Vendor:** !vendor!\n### BIOS:\n**Bios Version:** !biosversion!\n**Bios Vendor:** !biosvendor!\n### Hardware:\n**CPU:** !cpuname! `!cpucores! cores` `!cputhreads! threads`\n**GPU/s:** !gpuinfo!\n**RAM:** !ram!GB !ddrVersion! !ramspeed!MHZ `!ramsticks! sticks`\n### Storage Drive:\n**Drive Model:** !DriveModel!\n**Capacity:** !DriveCapacity!\", \"footer\": {\"text\": \"Developed by AlexiaTheTechGirl - SysInfo !scriptver!\"}}]}"
 echo Sending System Information
 %curl_dir% -H "Content-Type: application/json" -d %BODY% %WEBHOOK_URL%
 echo Information Sent
