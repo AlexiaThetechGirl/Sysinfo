@@ -317,7 +317,7 @@ for %%a in (%Pagefile%) do set "Pagefile=!nospace!%%a"
 ::set "version=%version:~0,-3%" 
 ::set "cpuname=%cpuname:~0,-3%" 
 :senddata
-set "scriptver=V1.2"
+set "scriptver=V1.3"
 SET BODY="{\"username\": \"System Info\", \"embeds\": [{\"title\": \"!selectedusername! System Information\", \"color\": 16711680, \"description\": \"### OS:\n**Version:** !version! !DisplayVersion! `!detailedversion!`!BootTimeVar!\n**Architecture:** !architecture!\n**PC Name:** !computername!\n**Page File size:** !Pagefile!KB\n!timeinfo!### Motherboard:\n**Motherboard:** !motherboard!\n**Motherboard Vendor:** !vendor!\n### BIOS:\n**Bios Version:** !biosversion!\n**Bios Vendor:** !biosvendor!\n### Hardware:\n**CPU:** !cpuname! `!cpucores! cores` `!cputhreads! threads`\n**GPU/s:** !gpuinfo!\n**RAM:** !ram!GB !ddrVersion! !ramspeed!MHZ `!ramsticks! sticks`\n### Storage Drive:\n**Drive Model:** !DriveModel!\n**Capacity:** !DriveCapacity!\", \"footer\": {\"text\": \"Developed by AlexiaTheTechGirl - SysInfo !scriptver!\"}}]}"
 echo Sending System Information
 %curl_dir% -H "Content-Type: application/json" -d %BODY% %WEBHOOK_URL%
