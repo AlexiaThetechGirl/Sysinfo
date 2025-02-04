@@ -209,6 +209,10 @@ if %memType%==27 (
     set "ddrVersion=DDR5"
     goto infoindex
 )
+if %memType%==34 (
+    set "ddrVersion=DDR5"
+    goto infoindex
+)
 if %memType%==26 (
     set "ddrVersion=DDR4"
     goto infoindex)
